@@ -19,6 +19,7 @@
 import { ref, onMounted, watch } from 'vue';
 import mermaid from 'mermaid';
 import { v4 as uuidv4 } from 'uuid';
+import { toPng, toJpeg } from 'html-to-image'; 
 
 const props = defineProps<{
   code: string;
@@ -64,55 +65,48 @@ const copySourceCode = () => {
     });
 };
 
-const exportAsPNG = () => {
-  const svgElement = document.getElementById(diagramId.value)?.querySelector('svg');
-  if (!svgElement) return;
+const exportAsPNG = async () => {
+  const element = document.getElementById(diagramId.value);
+  if (!element) return;
   
-  const svgData = new XMLSerializer().serializeToString(svgElement);
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
-  const img = new Image();
-  
-  img.onload = () => {
-    canvas.width = img.width;
-    canvas.height = img.height;
-    ctx?.drawImage(img, 0, 0);
+  try {
+    const dataUrl = await toPng(element, { 
+      pixelRatio: window.devicePixelRatio || 2,
+      backgroundColor: '#ffffff',
+      quality: 1.0
+    });
     
     const a = document.createElement('a');
     a.download = `diagram-${Date.now()}.png`;
-    a.href = canvas.toDataURL('image/png');
+    a.href = dataUrl;
     a.click();
-  };
-  
-  img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+  } catch (error) {
+    console.error('导出PNG失败:', error);
+    alert('导出PNG失败');
+  }
 };
 
-const exportAsJPG = () => {
-  const svgElement = document.getElementById(diagramId.value)?.querySelector('svg');
-  if (!svgElement) return;
+const exportAsJPG = async () => {
+  const element = document.getElementById(diagramId.value);
+  if (!element) return;
   
-  const svgData = new XMLSerializer().serializeToString(svgElement);
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
-  const img = new Image();
-  
-  img.onload = () => {
-    canvas.width = img.width;
-    canvas.height = img.height;
-    if (ctx) {
-      ctx.fillStyle = 'white';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0);
-    }
+  try {
+    const dataUrl = await toJpeg(element, { 
+      pixelRatio: window.devicePixelRatio || 2,
+      backgroundColor: '#ffffff',
+      quality: 1.0
+    });
     
     const a = document.createElement('a');
     a.download = `diagram-${Date.now()}.jpg`;
-    a.href = canvas.toDataURL('image/jpeg', 0.9);
+    a.href = dataUrl;
     a.click();
-  };
-  
-  img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+  } catch (error) {
+    console.error('导出JPG失败:', error);
+    alert('导出JPG失败');
+  }
 };
+
 
 onMounted(() => {
   renderDiagram();
