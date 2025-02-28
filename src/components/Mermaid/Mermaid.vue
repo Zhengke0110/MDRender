@@ -1,0 +1,173 @@
+<template>
+  <div class="mermaid-container">
+    <div class="mermaid-toolbar">
+      <button @click="copySourceCode" class="tool-button" title="复制源码">
+        <span>复制</span>
+      </button>
+      <button @click="exportAsPNG" class="tool-button" title="导出为PNG">
+        <span>导出PNG</span>
+      </button>
+      <button @click="exportAsJPG" class="tool-button" title="导出为JPG">
+        <span>导出JPG</span>
+      </button>
+    </div>
+    <div :id="diagramId" class="mermaid">{{ code }}</div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, onMounted, watch } from 'vue';
+import mermaid from 'mermaid';
+import { v4 as uuidv4 } from 'uuid';
+
+const props = defineProps<{
+  code: string;
+}>();
+
+const diagramId = ref(`mermaid-${uuidv4()}`);
+
+const renderDiagram = async () => {
+  try {
+    // Clear existing content
+    const element = document.getElementById(diagramId.value);
+    if (element) {
+      element.innerHTML = props.code;
+      
+      // Initialize and render mermaid diagram
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: 'default',
+        securityLevel: 'loose'
+      });
+      
+      await mermaid.run({
+        nodes: [document.getElementById(diagramId.value)!]
+      });
+    }
+  } catch (error) {
+    console.error('Failed to render mermaid diagram:', error);
+    const element = document.getElementById(diagramId.value);
+    if (element) {
+      element.innerHTML = `<pre class="error">渲染错误: ${error}</pre>`;
+    }
+  }
+};
+
+const copySourceCode = () => {
+  navigator.clipboard.writeText(props.code)
+    .then(() => {
+      alert('已复制到剪贴板');
+    })
+    .catch((err) => {
+      console.error('复制失败:', err);
+      alert('复制失败');
+    });
+};
+
+const exportAsPNG = () => {
+  const svgElement = document.getElementById(diagramId.value)?.querySelector('svg');
+  if (!svgElement) return;
+  
+  const svgData = new XMLSerializer().serializeToString(svgElement);
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  const img = new Image();
+  
+  img.onload = () => {
+    canvas.width = img.width;
+    canvas.height = img.height;
+    ctx?.drawImage(img, 0, 0);
+    
+    const a = document.createElement('a');
+    a.download = `diagram-${Date.now()}.png`;
+    a.href = canvas.toDataURL('image/png');
+    a.click();
+  };
+  
+  img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+};
+
+const exportAsJPG = () => {
+  const svgElement = document.getElementById(diagramId.value)?.querySelector('svg');
+  if (!svgElement) return;
+  
+  const svgData = new XMLSerializer().serializeToString(svgElement);
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  const img = new Image();
+  
+  img.onload = () => {
+    canvas.width = img.width;
+    canvas.height = img.height;
+    if (ctx) {
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+    }
+    
+    const a = document.createElement('a');
+    a.download = `diagram-${Date.now()}.jpg`;
+    a.href = canvas.toDataURL('image/jpeg', 0.9);
+    a.click();
+  };
+  
+  img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+};
+
+onMounted(() => {
+  renderDiagram();
+});
+
+// Re-render when code changes
+watch(() => props.code, () => {
+  renderDiagram();
+});
+</script>
+
+<style scoped>
+.mermaid-container {
+  position: relative;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  padding: 16px;
+  margin: 16px 0;
+  background-color: #f9f9f9;
+}
+
+.mermaid-toolbar {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+}
+
+.mermaid-container:hover .mermaid-toolbar {
+  opacity: 1;
+}
+
+.tool-button {
+  background-color: #f0f0f0;
+  border: 1px solid #d0d0d0;
+  border-radius: 3px;
+  padding: 3px 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.tool-button:hover {
+  background-color: #e0e0e0;
+}
+
+.mermaid {
+  min-height: 50px;
+}
+
+.error {
+  color: red;
+  font-family: monospace;
+}
+</style>
