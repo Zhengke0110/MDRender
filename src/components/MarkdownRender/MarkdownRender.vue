@@ -3,7 +3,6 @@
       <div v-html="renderedContent"></div>
     </div>
   </template>
-  
   <script setup lang="ts">
   import { ref, watchEffect } from 'vue';
   import { marked } from 'marked';
@@ -15,23 +14,16 @@
   }>();
   
   const renderedContent = ref();
+  const mermaidBlocks = ref<{id: string, code: string}[]>([]);
   
   // Custom renderer for mermaid code blocks
   const customRenderer = {
     code(this: any, { text, lang }: { text: string; lang?: string }) {
       if (lang === 'mermaid') {
         // Generate a placeholder div that will be replaced with the mermaid component
-        const id = `mermaid-placeholder-${Math.random().toString(36).substring(2, 10)}`;
-        setTimeout(() => {
-          const el = document.getElementById(id);
-          if (el) {
-            // Mount Mermaid component in place of the placeholder
-            const app = createApp({
-              render: () => h(Mermaid, { code: text })
-            });
-            app.mount(el);
-          }
-        }, 0);
+        const id = `mermaid-placeholder-${Math.random().toString(36).substring(2, 15)}`;
+        // Store the mermaid code block for later mounting
+        mermaidBlocks.value.push({ id, code: text });
         return `<div id="${id}"></div>`;
       }
       // Default code rendering for non-mermaid blocks
@@ -39,12 +31,42 @@
     }
   };
   
+  // Mount mermaid components sequentially to avoid race conditions
+  const mountMermaidComponents = () => {
+    // Clear previous mounts first
+    mermaidBlocks.value.forEach(block => {
+      const existingApp = document.getElementById(block.id)?.querySelector('[data-v-app]');
+      if (existingApp) {
+        existingApp.remove();
+      }
+    });
+  
+    // Mount components with a small delay between each
+    mermaidBlocks.value.forEach((block, index) => {
+      setTimeout(() => {
+        const el = document.getElementById(block.id);
+        if (el) {
+          const app = createApp({
+            render: () => h(Mermaid, { code: block.code })
+          });
+          app.mount(el);
+        }
+      }, index * 50); // Add small delay between mounts
+    });
+  };
+  
   watchEffect(() => {
+    // Reset mermaid blocks when content changes
+    mermaidBlocks.value = [];
+    
     // Configure marked to use our custom renderer
     marked.use({ renderer: customRenderer });
     
     // Render the markdown content
     renderedContent.value = marked(props.content);
+    
+    // Mount mermaid components after content is rendered
+    setTimeout(mountMermaidComponents, 50);
   });
   </script>
   
